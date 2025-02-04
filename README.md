@@ -73,13 +73,10 @@
 
         <div id="questions"></div>
 
-        <button onclick="addLine()">Add Another Line</button>
-        <button onclick="exportData()">Export Data (CSV)</button>
+        <button onclick="submitForm()">Submit</button>
     </div>
 
     <script>
-        const data = [];
-
         function showQuestions() {
             const lineType = document.getElementById('lineType').value;
             const questionsDiv = document.getElementById('questions');
@@ -116,40 +113,45 @@
             }
         }
 
-        function addLine() {
+        function submitForm() {
             const date = document.getElementById('date').value;
             const room = document.getElementById('room').value;
             const unit = document.getElementById('unit').value;
             const lineType = document.getElementById('lineType').value;
-            const notes = document.getElementById('notes').value;
+            const notes = document.getElementById('notes') ? document.getElementById('notes').value : '';
 
             const responses = {};
-            document.querySelectorAll('#questions input[type="radio"]').forEach(input => {
-                if (input.checked) {
-                    responses[input.name] = input.value;
-                } else if (!responses[input.name]) {
-                    responses[input.name] = 'N/A';
+            document.querySelectorAll('#questions input[type="radio"]:checked').forEach(input => {
+                responses[input.name] = input.value;
+            });
+
+            const formData = {
+                date: date,
+                room: room,
+                unit: unit,
+                lineType: lineType,
+                responses: JSON.stringify(responses),
+                notes: notes
+            };
+
+            fetch('https://script.google.com/a/macros/mail.rmu.edu/s/AKfycbzznkrbZZZtaKWA0bCUuLqrPg2BfHzZXTxi9IrlVTqIxhfrGd-nQMIafLEwVzLwDoRcxg/exec', {
+                method: 'POST',
+                body: JSON.stringify(formData),
+                headers: {
+                    'Content-Type': 'application/json'
                 }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.result === 'Success') {
+                    alert('Form submitted successfully!');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
             });
-
-            data.push({ date, room, unit, lineType, responses, notes });
-            alert('Line data added successfully!');
-            document.getElementById('questions').innerHTML = '';
-            document.getElementById('lineType').value = '';
-        }
-
-        function exportData() {
-            let csvContent = 'Date,Room,Unit,Line Type,Responses,Notes\n';
-            data.forEach(row => {
-                const responseStr = Object.entries(row.responses).map(([key, val]) => `${key}: ${val}`).join('; ');
-                csvContent += `${row.date},${row.room},${row.unit},${row.lineType},${responseStr},${row.notes}\n`;
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'clabsi_quality_data.csv';
-            link.click();
         }
     </script>
 </body>
