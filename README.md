@@ -35,7 +35,7 @@
 </head>
 <body>
     <h1>CLABSI Quality Check Form</h1>
-    <div class="form-section">
+    <div class="form-section" id="formContainer">
         <label>Date: <input type="date" id="date"></label>
         <label>Room #: <input type="text" id="room"></label>
         <label>Unit:
@@ -59,27 +59,38 @@
             </select>
         </label>
 
-        <label>Line Type:
-            <select id="lineType" onchange="showQuestions()">
-                <option value="">Select Line</option>
-                <option value="PICC">PICC</option>
-                <option value="CVC">CVC</option>
-                <option value="VASCATH">VASCATH</option>
-                <option value="PORT">PORT</option>
-                <option value="Arterial Line">Arterial Line</option>
-                <option value="PIV">Peripheral IV (PIV)</option>
-            </select>
-        </label>
+        <div id="linesContainer"></div>
 
-        <div id="questions"></div>
-
+        <button onclick="addLine()">Add Line</button>
         <button onclick="submitForm()">Submit</button>
     </div>
 
     <script>
-        function showQuestions() {
-            const lineType = document.getElementById('lineType').value;
-            const questionsDiv = document.getElementById('questions');
+        function addLine() {
+            const lineId = Date.now();
+            const lineSection = document.createElement('div');
+            lineSection.classList.add('form-section');
+            lineSection.innerHTML = `
+                <label>Line Type:
+                    <select onchange="showQuestions(this, ${lineId})">
+                        <option value="">Select Line</option>
+                        <option value="PICC">PICC</option>
+                        <option value="CVC">CVC</option>
+                        <option value="VASCATH">VASCATH</option>
+                        <option value="PORT">PORT</option>
+                        <option value="Arterial Line">Arterial Line</option>
+                        <option value="PIV">Peripheral IV (PIV)</option>
+                    </select>
+                </label>
+                <div id="questions-${lineId}"></div>
+                <button onclick="removeLine(this)">Remove Line</button>
+            `;
+            document.getElementById('linesContainer').appendChild(lineSection);
+        }
+
+        function showQuestions(selectElement, lineId) {
+            const lineType = selectElement.value;
+            const questionsDiv = document.getElementById(`questions-${lineId}`);
             questionsDiv.innerHTML = '';
 
             if (lineType) {
@@ -95,43 +106,56 @@
                     'All Hubs are Correctly Connected or Disinfecting Tip is in Place'
                 ];
 
-                questions.forEach(q => {
+                questions.forEach((q, index) => {
                     questionsDiv.innerHTML += `
                         <label>${q}:
-                            <input type="radio" name="${q}" value="Yes"> Yes
-                            <input type="radio" name="${q}" value="No"> No
-                            <input type="radio" name="${q}" value="N/A"> N/A
+                            <input type="radio" name="${q}-${lineId}" value="Yes"> Yes
+                            <input type="radio" name="${q}-${lineId}" value="No"> No
+                            <input type="radio" name="${q}-${lineId}" value="N/A"> N/A
                         </label>
                     `;
                 });
 
                 questionsDiv.innerHTML += `
                     <label>Notes/Actions Taken:
-                        <textarea id="notes" rows="3" cols="30"></textarea>
+                        <textarea name="notes-${lineId}" rows="3" cols="30"></textarea>
                     </label>
                 `;
             }
+        }
+
+        function removeLine(button) {
+            button.parentElement.remove();
         }
 
         function submitForm() {
             const date = document.getElementById('date').value;
             const room = document.getElementById('room').value;
             const unit = document.getElementById('unit').value;
-            const lineType = document.getElementById('lineType').value;
-            const notes = document.getElementById('notes') ? document.getElementById('notes').value : '';
 
-            const responses = {};
-            document.querySelectorAll('#questions input[type="radio"]:checked').forEach(input => {
-                responses[input.name] = input.value;
+            const linesData = [];
+
+            document.querySelectorAll('#linesContainer > .form-section').forEach(lineSection => {
+                const lineType = lineSection.querySelector('select').value;
+                const notes = lineSection.querySelector('textarea') ? lineSection.querySelector('textarea').value : '';
+
+                const responses = {};
+                lineSection.querySelectorAll('input[type="radio"]:checked').forEach(input => {
+                    responses[input.name] = input.value;
+                });
+
+                linesData.push({
+                    lineType: lineType,
+                    responses: JSON.stringify(responses),
+                    notes: notes
+                });
             });
 
             const formData = {
                 date: date,
                 room: room,
                 unit: unit,
-                lineType: lineType,
-                responses: JSON.stringify(responses),
-                notes: notes
+                lines: linesData
             };
 
             fetch('https://script.google.com/a/macros/mail.rmu.edu/s/AKfycbzznkrbZZZtaKWA0bCUuLqrPg2BfHzZXTxi9IrlVTqIxhfrGd-nQMIafLEwVzLwDoRcxg/exec', {
